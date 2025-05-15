@@ -1635,8 +1635,13 @@ class HookedTransformer(HookedRootModule):
         else:
             state_dict_keys = list(state_dict.keys())
             for key in state_dict_keys:
-                self.load_state_dict({key: state_dict[key]}, strict=False)
-                del state_dict[key]
+                try:
+                    self.load_state_dict({key: state_dict[key]}, strict=False)
+                    del state_dict[key]
+                except RuntimeError as e:
+                    print(f"Failed to load {key} into model: {e}")
+                    breakpoint()
+
 
     def fill_missing_keys(self, state_dict):
         return loading.fill_missing_keys(self, state_dict)
@@ -1823,9 +1828,10 @@ class HookedTransformer(HookedRootModule):
             ].mean(
                 -1, keepdim=True
             )  # W_O is [head_index, d_model, d_head]
-            state_dict[f"blocks.{l}.attn.b_O"] = (
-                state_dict[f"blocks.{l}.attn.b_O"] - state_dict[f"blocks.{l}.attn.b_O"].mean()
-            )  # b_O is [d_model]
+            if self.cfg.has_qkv_bias:
+                state_dict[f"blocks.{l}.attn.b_O"] = (
+                    state_dict[f"blocks.{l}.attn.b_O"] - state_dict[f"blocks.{l}.attn.b_O"].mean()
+                )  # b_O is [d_model]
             if not self.cfg.attn_only:
                 state_dict[f"blocks.{l}.mlp.W_out"] = state_dict[
                     f"blocks.{l}.mlp.W_out"
@@ -1861,6 +1867,14 @@ class HookedTransformer(HookedRootModule):
         easier to interpret the head's output. Formally, we take b_O_new = b_O_original +
         sum_head(b_V_head @ W_O_head).
         """
+
+        skip_fold = False if self.cfg.has_qkv_bias else True 
+        if skip_fold:
+            logging.warning(
+                "fold_value_biases: Detected architecture without qkv bias - skipping value-bias folding."
+            )
+            return state_dict
+
         for layer in range(self.cfg.n_layers):
             # shape [head_index, d_head]
             if self.cfg.n_key_value_heads is None:

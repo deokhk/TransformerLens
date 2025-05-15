@@ -58,6 +58,8 @@ class HookedTransformerConfig:
             grouped query attention.
         attn_scale (float): The amount to divide attention scores by (if applicable). Defaults to
             sqrt(d_head)
+        use_qk_norm (bool): whether to use QK-Norm (Dehghani et al., 2023)
+        has_qkv_bias (bool):  whether the model has a bias term in the QKV projection.
         model_name (str): the name of the model, used to load
             weights from HuggingFace or initialized to "custom" if not passed
         original_architecture (str, *optional*): the family of the model, used
@@ -209,6 +211,8 @@ class HookedTransformerConfig:
     use_attn_result: bool = False
     use_attn_scale: bool = True
     attn_scale: float = -1.0
+    use_qk_norm: bool = False 
+    has_qkv_bias: bool = True
     use_split_qkv_input: bool = False
     use_hook_mlp_in: bool = False
     use_attn_in: bool = False

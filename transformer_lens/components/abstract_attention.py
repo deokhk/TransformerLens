@@ -17,6 +17,12 @@ from transformer_lens.past_key_value_caching import HookedTransformerKeyValueCac
 from transformer_lens.utilities.attention import complex_attn_linear, simple_attn_linear
 from transformer_lens.utils import get_offset_position_ids
 
+from .layer_norm import LayerNorm
+from .layer_norm_pre import LayerNormPre
+from .rms_norm import RMSNorm
+from .rms_norm_pre import RMSNormPre
+
+
 if is_bitsandbytes_available():
     import bitsandbytes as bnb
     from bitsandbytes.nn.modules import Params4bit
@@ -44,7 +50,30 @@ class AbstractAttention(ABC, nn.Module):
         """
         super().__init__()
         self.cfg = HookedTransformerConfig.unwrap(cfg)
+        if self.cfg.use_qk_norm: 
+            length = self.cfg.d_head if self.cfg.original_architecture == "Qwen3ForCausalLM" else self.cfg.d_model
 
+            if self.cfg.normalization_type == "RMS":
+                self.q_norm = RMSNorm(self.cfg, length)
+                self.k_norm = RMSNorm(self.cfg, length)
+            elif self.cfg.normalization_type == "RMSPre":
+                self.q_norm = RMSNormPre(self.cfg, length)
+                self.k_norm = RMSNormPre(self.cfg, length)
+            elif self.cfg.normalization_type == "LN":
+                if self.cfg.final_rms:
+                    self.q_norm = RMSNorm(self.cfg, length)
+                    self.k_norm = RMSNorm(self.cfg, length)
+                else:
+                    self.q_norm = LayerNorm(self.cfg, length)
+                    self.k_norm = LayerNorm(self.cfg, length)
+            elif self.cfg.normalization_type == "LNPre":
+                # We've folded in LayerNorm weights, so just need the center + scale parts
+                if self.cfg.final_rms:
+                    self.q_norm = RMSNormPre(self.cfg, length)
+                    self.k_norm = RMSNormPre(self.cfg, length)
+                else:
+                    self.q_norm = LayerNormPre(self.cfg, length)
+                    self.k_norm = LayerNormPre(self.cfg, length)
         if self.cfg.load_in_4bit:
             nq = int((self.cfg.d_model * self.cfg.d_head * self.cfg.n_heads) / 2)
             self.W_Q = Params4bit(torch.empty(nq, 1, dtype=torch.uint8), requires_grad=False)
@@ -347,7 +376,7 @@ class AbstractAttention(ABC, nn.Module):
             else simple_attn_linear
         )
         if self.cfg.load_in_4bit:
-            q = self.hook_q(
+            q_raw = (
                 # call bitsandbytes method to dequantize and multiply
                 bnb.matmul_4bit(
                     query_input,
@@ -363,11 +392,16 @@ class AbstractAttention(ABC, nn.Module):
                 + self.b_Q
             )
         else:
-            q = self.hook_q(attn_fn(query_input, self.W_Q, self.b_Q))
+            q_raw = attn_fn(query_input, self.W_Q, self.b_Q)
+        if self.cfg.use_qk_norm:
+            q_raw = self.q_norm(q_raw)
+        
+        q = self.hook_q(q_raw)
+
         if self.cfg.load_in_4bit:
             if not isinstance(self.W_K, Params4bit):
                 raise ValueError("W_K must be a Params4bit object if load_in_4bit is True")
-            k = self.hook_k(
+            k_raw = (
                 # call bitsandbytes method to dequantize and multiply
                 bnb.matmul_4bit(
                     key_input, self.W_K.t(), bias=None, quant_state=self.W_K.quant_state
@@ -380,7 +414,11 @@ class AbstractAttention(ABC, nn.Module):
                 + self.b_K
             )
         else:
-            k = self.hook_k(attn_fn(key_input, self.W_K, self.b_K))
+            k_raw = attn_fn(key_input, self.W_K, self.b_K)
+        if self.cfg.use_qk_norm:
+            k_raw = self.k_norm(k_raw)
+        
+        k = self.hook_k(k_raw)
 
         if self.cfg.load_in_4bit:
             if not isinstance(self.W_V, Params4bit):
@@ -403,6 +441,7 @@ class AbstractAttention(ABC, nn.Module):
         else:
             v = self.hook_v(attn_fn(value_input, self.W_V, self.b_V))
 
+        breakpoint()
         return q, k, v
 
     def calculate_attention_scores(

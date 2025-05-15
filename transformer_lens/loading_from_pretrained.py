@@ -38,6 +38,7 @@ from transformer_lens.pretrained.weight_conversions import (
     convert_opt_weights,
     convert_phi3_weights,
     convert_phi_weights,
+    convert_qwen3_weights,
     convert_qwen2_weights,
     convert_qwen_weights,
     convert_t5_weights,
@@ -1321,12 +1322,12 @@ def convert_hf_model_config(model_name: str, **kwargs):
         # Architecture for Qwen3 models (w/o using MoE).
         cfg_dict = {
             "d_model": hf_config.hidden_size,
-            "d_head": hf_config.hidden_size // hf_config.num_attention_heads,
+            "d_head": hf_config.head_dim,
             "n_heads": hf_config.num_attention_heads,
             "n_key_value_heads": hf_config.num_key_value_heads,
             "d_mlp": hf_config.intermediate_size,
             "n_layers": hf_config.num_hidden_layers,
-            "n_ctx": hf_config.max_position_embeddings,  # No capping here
+            "n_ctx": 2048,  # Temporary set to 2048.  (consider hf_config.max_position_embeddings?)
             "eps": hf_config.rms_norm_eps,
             "d_vocab": hf_config.vocab_size,
             "act_fn": hf_config.hidden_act,
@@ -1341,6 +1342,8 @@ def convert_hf_model_config(model_name: str, **kwargs):
             "final_rms": True,
             "gated_mlp": True,
             "default_prepend_bos": False,
+            "use_qk_norm": True,
+            "has_qkv_bias": False
         }
     elif architecture == "PhiForCausalLM":
         # Architecture for microsoft/phi models
@@ -1927,8 +1930,10 @@ def get_pretrained_state_dict(
             state_dict = convert_coder_weights(hf_model, cfg)
         elif cfg.original_architecture == "QWenLMHeadModel":
             state_dict = convert_qwen_weights(hf_model, cfg)
-        elif cfg.original_architecture == "Qwen2ForCausalLM" or cfg.original_architecture == "Qwen3ForCausalLM":
+        elif cfg.original_architecture == "Qwen2ForCausalLM":
             state_dict = convert_qwen2_weights(hf_model, cfg)
+        elif cfg.original_architecture == "Qwen3ForCausalLM":
+            state_dict = convert_qwen3_weights(hf_model, cfg)
         elif cfg.original_architecture == "PhiForCausalLM":
             state_dict = convert_phi_weights(hf_model, cfg)
         elif cfg.original_architecture == "Phi3ForCausalLM":
