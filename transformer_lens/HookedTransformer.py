@@ -1376,7 +1376,7 @@ class HookedTransformer(HookedRootModule):
             fold_value_biases=fold_value_biases,
             refactor_factored_attn_matrices=refactor_factored_attn_matrices,
         )
-
+        breakpoint()
         if move_to_device:
             model.move_model_modules_to_device()
 
@@ -1592,7 +1592,20 @@ class HookedTransformer(HookedRootModule):
                 "When running MoE models, it is advised to use a higher precision data type. See docs for more info."
             )
 
+        print(f"Before missing key filling: num keys in state dict: {len(state_dict)}")
+        state_dict_key_prev = list(state_dict.keys())
         state_dict = self.fill_missing_keys(state_dict)
+
+        print(f"After missing key filling: num keys in state dict: {len(state_dict)}")
+        state_dict_key_post = list(state_dict.keys())
+
+        diff = set(state_dict_key_post) - set(state_dict_key_prev)
+        if len(diff) > 0:
+            print(
+                f"Warning: {len(diff)} keys were not found in the state dict after filling missing keys. These keys are: {diff}"
+            )
+        breakpoint()
+
         if fold_ln:
             if self.cfg.num_experts and self.cfg.num_experts > 1:
                 logging.warning(
@@ -1634,6 +1647,7 @@ class HookedTransformer(HookedRootModule):
             self.load_state_dict(state_dict, assign=True, strict=False)
         else:
             state_dict_keys = list(state_dict.keys())
+            breakpoint()
             for key in state_dict_keys:
                 try:
                     self.load_state_dict({key: state_dict[key]}, strict=False)
