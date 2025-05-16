@@ -1,5 +1,7 @@
 # TransformerLens
 
+Modified from commit 47fe15666017d1b507bfebeefd877dbc428d8463, to support Qwen3
+
 <!-- Status Icons -->
 [![Pypi](https://img.shields.io/pypi/v/transformer-lens?color=blue)](https://pypi.org/project/transformer-lens/)
 ![Pypi Total Downloads](https://img.shields.io/pepy/dt/transformer_lens?color=blue) ![PyPI -
