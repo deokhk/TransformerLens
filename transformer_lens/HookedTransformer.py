@@ -1269,11 +1269,17 @@ class HookedTransformer(HookedRootModule):
                 "Execution stopped: Please use HookedEncoderDecoder to load T5 models instead of HookedTransformer."
             )
 
+        if "qwen3" in model_name.lower():
+            logging.warning(
+                "Currently, Qwen3 does not support folding layernorm. Setting fold_ln=False instead."
+            )
+            fold_ln = False
+
         assert not (
             from_pretrained_kwargs.get("load_in_8bit", False)
             or from_pretrained_kwargs.get("load_in_4bit", False)
         ), "Quantization not supported"
-
+        
         if hf_model is not None:
             hf_cfg = hf_model.config.to_dict()
             qc = hf_cfg.get("quantization_config", {})
@@ -1595,10 +1601,6 @@ class HookedTransformer(HookedRootModule):
             if self.cfg.num_experts and self.cfg.num_experts > 1:
                 logging.warning(
                     "You are using MoE, so the layer norm weights can't be folded! Skipping"
-                )
-            if self.cfg.original_architecture == "Qwen3ForCausalLM":
-                logging.warning(
-                    "Currently, layer norm folding is not supported for Qwen3ForCausalLM. Skipping"
                 )
             elif self.cfg.normalization_type in ["LN", "LNPre"]:
                 state_dict = self.fold_layer_norm(state_dict)
