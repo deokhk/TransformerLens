@@ -441,7 +441,6 @@ class AbstractAttention(ABC, nn.Module):
         else:
             v = self.hook_v(attn_fn(value_input, self.W_V, self.b_V))
 
-        breakpoint()
         return q, k, v
 
     def calculate_attention_scores(

@@ -123,20 +123,20 @@ class GroupedQueryAttention(AbstractAttention):
             else simple_attn_linear
         )
 
-        q = self.hook_q(
-            attn_fn(query_input, self.W_Q, self.b_Q)
-        )  # [batch, pos, head_index, d_head]
+        q_raw = attn_fn(query_input, self.W_Q, self.b_Q) # [batch, pos, head_index, d_head]
+        if self.cfg.use_qk_norm:
+            q_raw = self.q_norm(q_raw)
 
-        k = self.hook_k(
-            attn_fn(key_input, self.W_K, self.b_K)
-            if self.cfg.ungroup_grouped_query_attention
-            else attn_fn(key_input, self._W_K, self._b_K)
-        )  # [batch, pos, head_index, d_head]
-        v = self.hook_v(
-            attn_fn(value_input, self.W_V, self.b_V)
-            if self.cfg.ungroup_grouped_query_attention
-            else attn_fn(value_input, self._W_V, self._b_V)
-        )  # [batch, pos, head_index, d_head]
+        q = self.hook_q(q_raw)
+
+        k_raw = attn_fn(key_input, self.W_k, self.b_K) if self.cfg.ungroup_grouped_query_attention else attn_fn(key_input, self._W_K, self._b_K)
+        if self.cfg.use_qk_norm:
+            k_raw = self.k_norm(k_raw)
+        
+        k = self.hook_k(k_raw) # [batch, pos, head_index, d_head]
+
+        v = self.hook_v(attn_fn(value_input, self.W_V, self.b_V) if self.cfg.ungroup_grouped_query_attention else attn_fn(value_input, self._W_V, self._b_V))
+       
         return q, k, v
 
     def calculate_attention_scores(
