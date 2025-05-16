@@ -5,8 +5,8 @@
     name="transformer-lens"
     packages=[{include="transformer_lens"}]
     readme="README.md"
-    # Version is automatically set by the pipeline on release
-    version="0.0.0"
+    # Version is automatically set by the pipeline on release. Below is a original version of commit 47fe15666017d1b507bfebeefd877dbc428d8463
+    version="2.15.1" 
 
     [tool.poetry.scripts]
         build-docs="docs.make_docs:build_docs"
