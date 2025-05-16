@@ -57,8 +57,8 @@ class AbstractAttention(ABC, nn.Module):
                 self.q_norm = RMSNorm(self.cfg, length)
                 self.k_norm = RMSNorm(self.cfg, length)
             elif self.cfg.normalization_type == "RMSPre":
-                self.q_norm = RMSNormPre(self.cfg, length)
-                self.k_norm = RMSNormPre(self.cfg, length)
+                self.q_norm = RMSNormPre(self.cfg)
+                self.k_norm = RMSNormPre(self.cfg)
             elif self.cfg.normalization_type == "LN":
                 if self.cfg.final_rms:
                     self.q_norm = RMSNorm(self.cfg, length)
@@ -69,11 +69,11 @@ class AbstractAttention(ABC, nn.Module):
             elif self.cfg.normalization_type == "LNPre":
                 # We've folded in LayerNorm weights, so just need the center + scale parts
                 if self.cfg.final_rms:
-                    self.q_norm = RMSNormPre(self.cfg, length)
-                    self.k_norm = RMSNormPre(self.cfg, length)
+                    self.q_norm = RMSNormPre(self.cfg)
+                    self.k_norm = RMSNormPre(self.cfg)
                 else:
-                    self.q_norm = LayerNormPre(self.cfg, length)
-                    self.k_norm = LayerNormPre(self.cfg, length)
+                    self.q_norm = LayerNormPre(self.cfg)
+                    self.k_norm = LayerNormPre(self.cfg)
         if self.cfg.load_in_4bit:
             nq = int((self.cfg.d_model * self.cfg.d_head * self.cfg.n_heads) / 2)
             self.W_Q = Params4bit(torch.empty(nq, 1, dtype=torch.uint8), requires_grad=False)

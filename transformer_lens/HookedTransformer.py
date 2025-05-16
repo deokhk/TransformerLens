@@ -1596,6 +1596,10 @@ class HookedTransformer(HookedRootModule):
                 logging.warning(
                     "You are using MoE, so the layer norm weights can't be folded! Skipping"
                 )
+            if self.cfg.original_architecture == "Qwen3ForCausalLM":
+                logging.warning(
+                    "Currently, layer norm folding is not supported for Qwen3ForCausalLM. Skipping"
+                )
             elif self.cfg.normalization_type in ["LN", "LNPre"]:
                 state_dict = self.fold_layer_norm(state_dict)
             elif self.cfg.normalization_type in ["RMS", "RMSPre"]:
